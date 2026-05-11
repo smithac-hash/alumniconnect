@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-light: #fde68a;
+  --color-primary-default: #d4a373;
+  --color-primary-dark: #a98467;
+  --color-accent-light: #60a5fa;
+  --color-accent-default: #3b82f6;
+  --color-accent-dark: #1e40af;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 font-sans antialiased;
+}
+
+.glass-card {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl;
+}
+
+.btn-primary {
+  @apply px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-xl 
+         hover:shadow-lg hover:scale-[1.02] transition-all duration-200 active:scale-95 disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl 
+         hover:bg-slate-50 hover:shadow-md transition-all duration-200 active:scale-95;
+}
+
+.input-field {
+  @apply w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 
+         focus:border-transparent outline-none transition-all duration-200;
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-700;
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
