@@ -1,200 +1,203 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { 
+    Briefcase, 
+    MessageSquare, 
+    Users, 
+    TrendingUp, 
+    Calendar, 
+    Award,
+    ChevronRight,
+    Loader2,
+    Shield,
+    Edit3
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Briefcase, Plus, Edit3, Save, Loader2, Link as LinkIcon } from 'lucide-react';
 import axios from 'axios';
 
 const AlumniDashboard = () => {
-    const { user } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [profile, setProfile] = useState({
-        company: '',
-        role: '',
-        experience: '',
-        skills: '',
-        graduationYear: '',
-        domain: '',
-        linkedin: '',
-        bio: ''
+    const { user, token } = useAuth();
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState(null);
+    const [stats, setStats] = useState({
+        connections: 0,
+        sessions: 0,
+        posts: 0,
+        mentees: 0
     });
 
     useEffect(() => {
-        fetchProfile();
-    }, []);
-
-    const fetchProfile = async () => {
-        try {
-            const config = {
-                headers: { Authorization: `Bearer ${user.token}` }
-            };
-            const { data } = await axios.get(`http://localhost:5000/api/alumni/profile/${user._id}`, config);
-            if (data) {
-                setProfile({
-                    ...data,
-                    skills: data.skills.join(', ')
-                });
+        const fetchDashboardData = async () => {
+            try {
+                const config = { headers: { Authorization: `Bearer ${token}` } };
+                const [profileRes, statsRes] = await Promise.all([
+                    axios.get(`http://localhost:5000/api/alumni/profile/${user._id}`, config),
+                    axios.get('http://localhost:5000/api/alumni/stats', config).catch(() => ({ data: null }))
+                ]);
+                
+                if (profileRes.data) setProfile(profileRes.data);
+                if (statsRes.data) setStats(statsRes.data);
+            } catch (error) {
+                console.error('Error fetching dashboard data');
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.log('Profile not set yet');
-        }
-    };
+        };
+        if (token) fetchDashboardData();
+    }, [user._id, token]);
 
-    const handleUpdateProfile = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            const config = {
-                headers: { Authorization: `Bearer ${user.token}` }
-            };
-            const formattedData = {
-                ...profile,
-                skills: profile.skills.split(',').map(s => s.trim())
-            };
-            await axios.post('http://localhost:5000/api/alumni/profile', formattedData, config);
-            alert('Profile updated successfully!');
-        } catch (error) {
-            alert('Failed to update profile');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const QuickAction = ({ icon: Icon, title, subtitle, color, to }) => (
+        <button 
+            onClick={() => navigate(to)}
+            className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 transition-all group text-left w-full"
+        >
+            <div className={`w-14 h-14 ${color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+                <Icon size={28} />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-1">{title}</h3>
+            <p className="text-sm text-slate-500 font-medium mb-4">{subtitle}</p>
+            <div className="flex items-center text-xs font-black text-indigo-600 uppercase tracking-widest gap-1 group-hover:gap-2 transition-all">
+                Access Now <ChevronRight size={14} />
+            </div>
+        </button>
+    );
+
+    if (loading) return (
+        <div className="flex items-center justify-center h-screen">
+            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        </div>
+    );
 
     return (
-        <div className="max-w-5xl mx-auto px-4 py-12">
-            <header className="mb-12 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-bold text-slate-900 mb-2">My Profile</h1>
-                    <p className="text-slate-500">Manage your professional information</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Welcome back, {user?.name.split(' ')[0]}! 👋</h1>
+                    <p className="text-slate-500 font-medium mt-2">Manage your professional presence and network.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate('/profile/edit')} className="btn-secondary h-12 px-6 flex items-center gap-2 border-slate-200">
+                        <Edit3 size={18} /> Edit Profile
+                    </button>
+                    <button onClick={() => navigate('/settings/privacy')} className="btn-primary h-12 px-6 flex items-center gap-2 shadow-indigo-500/20 shadow-xl">
+                        <Shield size={18} /> Privacy
+                    </button>
                 </div>
             </header>
 
-            <div className="grid lg:grid-cols-3 gap-12">
-                <div className="space-y-8">
-                    <div className="glass-card p-10 text-center">
-                        <div className="w-32 h-32 bg-slate-100 rounded-3xl mx-auto mb-6 flex items-center justify-center text-4xl font-bold text-slate-400">
-                            {user?.name.charAt(0)}
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                    { label: 'Connections', value: stats.connections || 0, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                    { label: 'Sessions', value: stats.sessions || 0, icon: Calendar, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                    { label: 'Total Posts', value: stats.posts || 0, icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' },
+                    { label: 'Active Mentees', value: stats.mentees || 0, icon: Award, color: 'text-rose-600', bg: 'bg-rose-50' }
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+                        <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center`}>
+                            <stat.icon size={20} />
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-1">{user?.name}</h2>
-                        <p className="text-slate-500 mb-6">{user?.email}</p>
-                        <div className="flex justify-center gap-4">
-                            <span className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase">
-                                {user?.role}
-                            </span>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                            <p className="text-2xl font-black text-slate-900">{stat.value}</p>
                         </div>
                     </div>
+                ))}
+            </div>
 
-                    <div className="glass-card p-8">
-                        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                            <Briefcase className="w-5 h-5 text-blue-600" />
-                            Active Postings
-                        </h3>
-                        <div className="space-y-4">
-                            <p className="text-slate-500 text-sm italic text-center py-4">
-                                You haven't posted any jobs or events yet.
-                            </p>
-                            <button className="w-full btn-secondary text-sm flex items-center justify-center gap-2">
-                                <Plus className="w-4 h-4" />
-                                Create New Post
-                            </button>
-                        </div>
+            {/* Quick Actions */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <QuickAction 
+                    icon={TrendingUp} 
+                    title="Community Feed" 
+                    subtitle="Share updates with the network."
+                    color="bg-indigo-600 text-white"
+                    to="/feed"
+                />
+                <QuickAction 
+                    icon={Calendar} 
+                    title="Sessions" 
+                    subtitle="Manage your live workshops."
+                    color="bg-emerald-500 text-white"
+                    to="/events"
+                />
+                <QuickAction 
+                    icon={MessageSquare} 
+                    title="Messaging" 
+                    subtitle="Real-time chat with students."
+                    color="bg-amber-500 text-white"
+                    to="/messaging"
+                />
+                <QuickAction 
+                    icon={Users} 
+                    title="Networking" 
+                    subtitle="Grow your alumni connections."
+                    color="bg-slate-900 text-white"
+                    to="/networking"
+                />
+            </div>
+
+            {/* Account Status / Profile Summary */}
+            <div className="grid lg:grid-cols-3 gap-12 pt-8">
+                <div className="lg:col-span-2">
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-full">
+                        <h2 className="text-xl font-black text-slate-900 mb-6">Profile Overview</h2>
+                        {profile ? (
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+                                    <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black">
+                                        {user.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">{profile.role}</p>
+                                        <p className="text-sm text-slate-500">{profile.company}</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 border border-slate-100 rounded-2xl">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Domain</p>
+                                        <p className="font-bold text-slate-900">{profile.domain}</p>
+                                    </div>
+                                    <div className="p-4 border border-slate-100 rounded-2xl">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Experience</p>
+                                        <p className="font-bold text-slate-900">{profile.experience} Years</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <p className="text-slate-500 font-medium mb-4">You haven't completed your professional profile yet.</p>
+                                <button onClick={() => navigate('/profile/edit')} className="btn-primary px-6 h-12">Setup Profile</button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="lg:col-span-2 glass-card p-10"
-                >
-                    <form onSubmit={handleUpdateProfile} className="space-y-8">
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Company</label>
-                                <input 
-                                    className="input-field"
-                                    value={profile.company}
-                                    onChange={(e) => setProfile({...profile, company: e.target.value})}
-                                    placeholder="Microsoft"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Role</label>
-                                <input 
-                                    className="input-field"
-                                    value={profile.role}
-                                    onChange={(e) => setProfile({...profile, role: e.target.value})}
-                                    placeholder="Software Engineer"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Years of Experience</label>
-                                <input 
-                                    type="number"
-                                    className="input-field"
-                                    value={profile.experience}
-                                    onChange={(e) => setProfile({...profile, experience: e.target.value})}
-                                    placeholder="5"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Domain</label>
-                                <select 
-                                    className="input-field bg-white"
-                                    value={profile.domain}
-                                    onChange={(e) => setProfile({...profile, domain: e.target.value})}
-                                >
-                                    <option value="">Select Domain</option>
-                                    <option>Software Engineering</option>
-                                    <option>Data Science</option>
-                                    <option>Design</option>
-                                    <option>Product Management</option>
-                                </select>
-                            </div>
-                            <div className="col-span-2 space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Skills (comma separated)</label>
-                                <input 
-                                    className="input-field"
-                                    value={profile.skills}
-                                    onChange={(e) => setProfile({...profile, skills: e.target.value})}
-                                    placeholder="React, Node.js, AWS"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-700">Graduation Year</label>
-                                <input 
-                                    type="number"
-                                    className="input-field"
-                                    value={profile.graduationYear}
-                                    onChange={(e) => setProfile({...profile, graduationYear: e.target.value})}
-                                    placeholder="2018"
-                                />
-                            </div>
-                             {/* LinkedIn profile option removed */}
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700">Bio</label>
-                            <textarea 
-                                className="input-field min-h-[120px] pt-3"
-                                value={profile.bio}
-                                onChange={(e) => setProfile({...profile, bio: e.target.value})}
-                                placeholder="Tell us about yourself..."
-                            />
-                        </div>
-
-                        <button 
-                            type="submit" 
-                            disabled={loading}
-                            className="btn-primary w-full h-14 flex items-center justify-center gap-2"
-                        >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                <div className="space-y-8">
+                    <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-slate-900/20">
+                        <h3 className="text-xl font-black mb-4">Account Status</h3>
+                        <div className="flex items-center gap-3 mb-8">
+                            {user.isVerified ? (
                                 <>
-                                    <Save className="w-5 h-5" />
-                                    Save Changes
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Verified Alumni</span>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Verification Pending</span>
                                 </>
                             )}
+                        </div>
+                        <p className="text-slate-400 font-medium mb-8 leading-relaxed">
+                            Verified members get exclusive access to mentorship programs and placement talks.
+                        </p>
+                        <button onClick={() => navigate('/profile/edit')} className="w-full h-14 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-2xl font-black transition-all">
+                            Manage Identity
                         </button>
-                    </form>
-                </motion.div>
+                    </div>
+                </div>
             </div>
         </div>
     );

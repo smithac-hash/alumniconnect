@@ -188,4 +188,22 @@ router.post('/reset-password', async (req, res) => {
     }
 });
 
+// @desc    Update privacy settings
+// @route   PUT /api/auth/profile/privacy
+// @access  Private
+router.put('/profile/privacy', protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (user) {
+            user.privacySettings = req.body.privacySettings;
+            await user.save();
+            res.json({ message: 'Privacy settings updated', privacySettings: user.privacySettings });
+        } else {
+            res.status(404).json({ message: 'User not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+});
+
 module.exports = router;

@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
-    organizer: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
     title: {
         type: String,
         required: true
@@ -14,22 +9,43 @@ const eventSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    date: {
+    bannerImage: {
+        type: String,
+        default: ''
+    },
+    dateTime: {
         type: Date,
         required: true
     },
-    time: {
+    venue: {
         type: String,
         required: true
     },
-    meetingLink: {
+    organizerName: {
         type: String,
         required: true
     },
-    attendees: [{
+    guestAlumni: {
+        type: String,
+        default: ''
+    },
+    type: {
+        type: String,
+        enum: ['Alumni Meet', 'Webinar', 'Workshop', 'Career Guidance', 'Placement Talk', 'Networking Event'],
+        default: 'Alumni Meet'
+    },
+    registrationDeadline: {
+        type: Date
+    },
+    maxParticipants: {
+        type: Number,
+        default: 0 // 0 for unlimited
+    },
+    createdBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }]
+        ref: 'User',
+        required: true
+    }
 }, {
     timestamps: true
 });

@@ -47,8 +47,23 @@ const userSchema = new mongoose.Schema({
     skills: {
         type: [String],
         default: []
+    },
+    connections: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    pendingRequests: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    privacySettings: {
+        showEmail: { type: Boolean, default: false },
+        showPhone: { type: Boolean, default: false },
+        allowStudentMessages: { type: Boolean, default: true },
+        openForMentorship: { type: Boolean, default: true },
+        showJourney: { type: Boolean, default: true }
     }
-}, {
+} , {
     timestamps: true
 });
 

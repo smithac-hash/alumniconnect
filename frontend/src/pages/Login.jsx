@@ -19,7 +19,11 @@ const Login = () => {
         setError('');
         try {
             const user = await login(email, password);
-            navigate(`/${user.role}-dashboard`);
+            if (user.role === 'admin') {
+                navigate('/admin/overview');
+            } else {
+                navigate(`/${user.role}-dashboard`);
+            }
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to login');
         } finally {

@@ -1,67 +1,45 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
+const RSVP = require('../models/RSVP');
+const EventMessage = require('../models/EventMessage');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const { protect, alumni } = require('../middleware/authMiddleware');
+const { protect, admin, alumni } = require('../middleware/authMiddleware');
 
-// @desc    Get all events
+// @desc    Get all events with RSVP status
 // @route   GET /api/events
 // @access  Private
 router.get('/', protect, async (req, res) => {
     try {
-        const events = await Event.find().sort({ date: 1 }).populate('organizer', 'name email').lean();
+        const events = await Event.find()
+            .sort({ dateTime: 1 })
+            .populate('createdBy', 'name email role')
+            .lean();
         
-        const Profile = require('../models/Profile');
-        const organizerIds = events.map(e => e.organizer._id);
-        const profiles = await Profile.find({ user: { $in: organizerIds } }).lean();
+        // Get user's RSVPs for these events
+        const userRSVPs = await RSVP.find({ user: req.user._id }).lean();
+        const rsvpMap = {};
+        userRSVPs.forEach(r => { rsvpMap[r.event.toString()] = r.status; });
 
-        const eventsWithProfiles = events.map(event => {
-            const profile = profiles.find(p => p.user.toString() === event.organizer._id.toString());
+        // Get total counts for each event
+        const allRSVPs = await RSVP.find({ event: { $in: events.map(e => e._id) } }).lean();
+        
+        const eventsWithStats = events.map(event => {
+            const eventRSVPs = allRSVPs.filter(r => r.event.toString() === event._id.toString());
             return {
                 ...event,
-                alumniProfile: profile || null
+                userStatus: rsvpMap[event._id.toString()] || null,
+                stats: {
+                    attending: eventRSVPs.filter(r => r.status === 'Attending').length,
+                    maybe: eventRSVPs.filter(r => r.status === 'Maybe').length,
+                    notAttending: eventRSVPs.filter(r => r.status === 'Not Attending').length,
+                    total: eventRSVPs.length
+                }
             };
         });
 
-        res.json(eventsWithProfiles);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-// @desc    Get upcoming events
-// @route   GET /api/events/upcoming
-// @access  Private
-router.get('/upcoming', protect, async (req, res) => {
-    try {
-        const currentDate = new Date();
-        // Zero out the time portion to include today's events regardless of exact hour
-        currentDate.setHours(0, 0, 0, 0);
-        
-        const upcomingEvents = await Event.find({
-            date: { $gte: currentDate }
-        })
-        .sort({ date: 1 })
-        .populate('organizer', 'name email')
-        .lean();
-
-        const Profile = require('../models/Profile');
-        const organizerIds = upcomingEvents.map(e => e.organizer._id);
-        const profiles = await Profile.find({ user: { $in: organizerIds } }).lean();
-
-        const eventsWithProfiles = upcomingEvents.map(event => {
-            const profile = profiles.find(p => p.user.toString() === event.organizer._id.toString());
-            return {
-                ...event,
-                alumniProfile: profile || null
-            };
-        });
-
-        res.json({
-            count: eventsWithProfiles.length,
-            events: eventsWithProfiles
-        });
+        res.json(eventsWithStats);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -69,33 +47,33 @@ router.get('/upcoming', protect, async (req, res) => {
 
 // @desc    Create an event
 // @route   POST /api/events
-// @access  Private/Alumni
-router.post('/', protect, alumni, async (req, res) => {
+// @access  Private/Admin
+router.post('/', protect, admin, async (req, res) => {
     try {
         const event = new Event({
-            organizer: req.user._id,
-            ...req.body
+            ...req.body,
+            createdBy: req.user._id
         });
         const savedEvent = await event.save();
 
-        // Real-time Notification logic
-        const io = req.app.get('socketio');
-        const students = await User.find({ role: 'student' });
-        
-        // Create notifications in DB
-        const notifications = students.map(student => ({
-            recipient: student._id,
+        // Notify all users
+        const users = await User.find({ _id: { $ne: req.user._id } });
+        const notifications = users.map(u => ({
+            recipient: u._id,
             sender: req.user._id,
-            message: `New webinar scheduled: ${event.title}`,
+            message: `New Event: ${event.title} has been announced!`,
             type: 'event'
         }));
         await Notification.insertMany(notifications);
 
-        // Emit socket event
-        io.emit('new_notification', {
-            message: `New webinar scheduled: ${event.title}`,
-            type: 'event'
-        });
+        // Emit socket notification
+        const io = req.app.get('socketio');
+        if (io) {
+            io.emit('new_notification', {
+                message: `New Event: ${event.title}`,
+                type: 'event'
+            });
+        }
 
         res.status(201).json(savedEvent);
     } catch (error) {
@@ -103,22 +81,92 @@ router.post('/', protect, alumni, async (req, res) => {
     }
 });
 
-// @desc    Register for an event
-// @route   POST /api/events/:id/register
+// @desc    RSVP for an event
+// @route   POST /api/events/:id/rsvp
 // @access  Private
-router.post('/:id/register', protect, async (req, res) => {
+router.post('/:id/rsvp', protect, async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['Attending', 'Maybe', 'Not Attending'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid RSVP status' });
+        }
+
+        const event = await Event.findById(req.params.id);
+        if (!event) return res.status(404).json({ message: 'Event not found' });
+
+        const rsvp = await RSVP.findOneAndUpdate(
+            { event: req.params.id, user: req.user._id },
+            { status },
+            { upsert: true, new: true }
+        );
+
+        res.json(rsvp);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Get messages for an event chat
+// @route   GET /api/events/:id/messages
+// @access  Private
+router.get('/:id/messages', protect, async (req, res) => {
+    try {
+        const messages = await EventMessage.find({ event: req.params.id })
+            .populate('sender', 'name role')
+            .sort({ createdAt: 1 });
+        res.json(messages);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Post a message to event chat
+// @route   POST /api/events/:id/messages
+// @access  Private
+router.post('/:id/messages', protect, async (req, res) => {
+    try {
+        const message = new EventMessage({
+            event: req.params.id,
+            sender: req.user._id,
+            content: req.body.content,
+            type: req.body.type || 'text'
+        });
+        await message.save();
+        
+        const populatedMessage = await message.populate('sender', 'name role');
+
+        // Emit socket message
+        const io = req.app.get('socketio');
+        if (io) {
+            io.to(`event_${req.params.id}`).emit('new_event_message', populatedMessage);
+        }
+
+        res.status(201).json(populatedMessage);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Get attendee list for an event
+// @route   GET /api/events/:id/attendees
+// @access  Private (Admin or Creator)
+router.get('/:id/attendees', protect, async (req, res) => {
     try {
         const event = await Event.findById(req.params.id);
         if (!event) return res.status(404).json({ message: 'Event not found' });
 
-        if (event.attendees.includes(req.user._id)) {
-            return res.status(400).json({ message: 'Already registered for this event' });
+        // Check if user is admin OR the creator
+        const isCreator = (event.createdBy && event.createdBy.toString() === req.user._id.toString()) || 
+                          (event.organizer && event.organizer.toString() === req.user._id.toString());
+        
+        if (req.user.role !== 'admin' && !isCreator) {
+            return res.status(403).json({ message: 'Not authorized to view attendee list' });
         }
 
-        event.attendees.push(req.user._id);
-        await event.save();
-
-        res.json({ message: 'Registered successfully' });
+        const rsvps = await RSVP.find({ event: req.params.id })
+            .populate('user', 'name email role')
+            .sort({ createdAt: -1 });
+        res.json(rsvps);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

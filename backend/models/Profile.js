@@ -8,40 +8,82 @@ const profileSchema = new mongoose.Schema({
     },
     company: {
         type: String,
-        required: true
+        default: ''
     },
     role: {
         type: String,
-        required: true
+        default: ''
     },
     experience: {
         type: Number,
-        required: true
+        default: 0
     },
     skills: {
         type: [String],
-        required: true
+        default: []
     },
     graduationYear: {
         type: Number,
-        required: true
+        default: new Date().getFullYear()
     },
     domain: {
         type: String,
-        required: true
-    },
-    achievements: {
-        type: String
-    },
-    linkedin: {
-        type: String
+        default: 'General'
     },
     bio: {
+        type: String,
+        default: ''
+    },
+    linkedin: {
         type: String
     },
     profilePhoto: {
         type: String,
         default: ''
+    },
+    coverPhoto: {
+        type: String,
+        default: ''
+    },
+    workExperience: [{
+        company: String,
+        role: String,
+        location: String,
+        startDate: Date,
+        endDate: Date,
+        description: String,
+        logo: String
+    }],
+    education: [{
+        school: String,
+        degree: String,
+        fieldOfStudy: String,
+        startYear: Number,
+        endYear: Number
+    }],
+    achievements: [{
+        title: String,
+        issuer: String,
+        date: Date,
+        description: String,
+        icon: String
+    }],
+    summary: {
+        type: String
+    },
+    mentorship: {
+        isAvailable: { type: Boolean, default: false },
+        areas: [String],
+        maxStudents: { type: Number, default: 3 },
+        availableTimings: String,
+        languages: [String]
+    },
+    resumeUrl: String,
+    portfolioUrl: String,
+    githubUrl: String,
+    settings: {
+        isPrivate: { type: Boolean, default: false },
+        allowStudentMessages: { type: Boolean, default: true }
     }
 }, {
     timestamps: true

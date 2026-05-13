@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Briefcase, MapPin, DollarSign, Clock, Plus, ExternalLink, X, Search } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, Clock, Plus, ExternalLink, X, Search, Bookmark, BookmarkCheck } from 'lucide-react';
 import io from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const JobPortal = () => {
+    const { user, token } = useAuth();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const { user } = useAuth();
+    const [savedJobIds, setSavedJobIds] = useState(new Set());
     
     // Form state for posting new job
     const [formData, setFormData] = useState({
@@ -25,38 +26,12 @@ const JobPortal = () => {
         deadline: '',
         skillsRequired: ''
     });
-    const [search, setSearch] = useState('');
-    const [filterDomain, setFilterDomain] = useState('');
-    const [filterType, setFilterType] = useState('');
-
-    useEffect(() => {
-        fetchJobs();
-        
-        const socket = io('http://localhost:5000');
-        socket.on('new_job', () => fetchJobs());
-        return () => socket.close();
-    }, [filterDomain, filterType]);
-
-    const fetchJobs = async () => {
-        try {
-            setLoading(true);
-            const config = {
-                headers: { Authorization: `Bearer ${user?.token}` }
-            };
-            const { data } = await axios.get(`http://localhost:5000/api/jobs?search=${search}&domain=${filterDomain}&type=${filterType}`, user?.token ? config : {});
-            setJobs(data);
-        } catch (error) {
-            console.error('Failed to fetch jobs');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handlePostJob = async (e) => {
         e.preventDefault();
         try {
             const config = {
-                headers: { Authorization: `Bearer ${user.token}` }
+                headers: { Authorization: `Bearer ${token}` }
             };
             const postData = {
                 ...formData,
@@ -67,6 +42,59 @@ const JobPortal = () => {
             fetchJobs();
         } catch (error) {
             alert('Failed to post job');
+        }
+    };
+    const [search, setSearch] = useState('');
+    const [filterDomain, setFilterDomain] = useState('');
+    const [filterType, setFilterType] = useState('');
+
+    useEffect(() => {
+        fetchJobs();
+        if (user?.role === 'student') fetchSavedJobs();
+        
+        const socket = io('http://localhost:5000');
+        socket.on('new_job', () => fetchJobs());
+        return () => socket.close();
+    }, [filterDomain, filterType, token]);
+
+    const fetchSavedJobs = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const { data } = await axios.get('http://localhost:5000/api/jobs/saved', config);
+            setSavedJobIds(new Set(data.map(item => item.job._id)));
+        } catch (error) {
+            console.error('Failed to fetch saved jobs');
+        }
+    };
+
+    const fetchJobs = async () => {
+        try {
+            setLoading(true);
+            const config = {
+                headers: { Authorization: `Bearer ${token}` }
+            };
+            const { data } = await axios.get(`http://localhost:5000/api/jobs?search=${search}&domain=${filterDomain}&type=${filterType}`, token ? config : {});
+            setJobs(data);
+        } catch (error) {
+            console.error('Failed to fetch jobs');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleBookmark = async (jobId) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const { data } = await axios.post(`http://localhost:5000/api/jobs/${jobId}/save`, {}, config);
+            
+            setSavedJobIds(prev => {
+                const next = new Set(prev);
+                if (data.isSaved) next.add(jobId);
+                else next.delete(jobId);
+                return next;
+            });
+        } catch (error) {
+            console.error('Failed to toggle bookmark');
         }
     };
 
@@ -131,11 +159,21 @@ const JobPortal = () => {
                             className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6 group"
                         >
                             <div className="flex-grow">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{job.title}</h2>
-                                    <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-bold rounded-full uppercase">
-                                        {job.type}
-                                    </span>
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{job.title}</h2>
+                                        <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-bold rounded-full uppercase">
+                                            {job.type}
+                                        </span>
+                                    </div>
+                                    {user?.role === 'student' && (
+                                        <button 
+                                            onClick={() => toggleBookmark(job._id)}
+                                            className={`p-2 rounded-xl transition-all ${savedJobIds.has(job._id) ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                                        >
+                                            {savedJobIds.has(job._id) ? <BookmarkCheck className="w-5 h-5 fill-current" /> : <Bookmark className="w-5 h-5" />}
+                                        </button>
+                                    )}
                                 </div>
                                 <p className="text-slate-600 font-semibold mb-4">{job.company}</p>
                                 

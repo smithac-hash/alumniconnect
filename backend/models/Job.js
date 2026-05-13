@@ -49,6 +49,10 @@ const jobSchema = new mongoose.Schema({
     },
     deadline: {
         type: Date
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

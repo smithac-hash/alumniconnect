@@ -22,11 +22,25 @@ const Navbar = () => {
 
                 <div className="flex items-center gap-6">
 
-                    <Link to="/jobs" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
+                    <Link to="/feed" className="text-slate-600 hover:text-indigo-600 font-bold transition-colors">
+                        Feed
+                    </Link>
+                    <Link to="/networking" className="text-slate-600 hover:text-indigo-600 font-bold transition-colors">
+                        Networking
+                    </Link>
+                    <Link to="/jobs" className="text-slate-600 hover:text-indigo-600 font-bold transition-colors">
                         Jobs
                     </Link>
-                    <Link to="/events" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
-                        Events
+                    {user?.role === 'student' && (
+                        <Link to="/saved-jobs" className="text-slate-600 hover:text-indigo-600 font-bold transition-colors">
+                            Saved
+                        </Link>
+                    )}
+                    <Link to="/events" className="text-slate-600 hover:text-indigo-600 font-bold transition-colors">
+                        Sessions
+                    </Link>
+                    <Link to="/messaging" className="text-slate-600 hover:text-indigo-600 font-bold transition-colors">
+                        Messages
                     </Link>
 
                     {user && user.token ? (
